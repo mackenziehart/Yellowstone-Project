@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kennedy Family Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#ffffff; --bg2:#f5f4f0; --bg3:#eeede8;
+      --text:#1a1a1a; --text2:#555550; --text3:#999990;
+      --border:rgba(0,0,0,0.10); --border2:rgba(0,0,0,0.20);
+      --radius:8px; --radius-lg:12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:#1a1a1a; --bg2:#242424; --bg3:#2e2e2e;
+        --text:#f0efe9; --text2:#aaa9a0; --text3:#666660;
+        --border:rgba(255,255,255,0.10); --border2:rgba(255,255,255,0.22);
+      }
+    }
+    body { font-family:'Georgia',serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    header { border-bottom:0.5px solid var(--border); padding:1.5rem 2rem 1rem; }
+    header h1 { font-size:22px; font-weight:normal; letter-spacing:-0.02em; }
+    header p { font-size:13px; color:var(--text2); margin-top:4px; font-family:system-ui,sans-serif; }
+    .nav-bar { display:flex; gap:6px; padding:0.85rem 2rem; border-bottom:0.5px solid var(--border); background:var(--bg); position:sticky; top:0; z-index:10; }
+    .nav-btn { padding:6px 16px; font-size:13px; font-family:system-ui,sans-serif; border-radius:var(--radius); border:0.5px solid var(--border2); background:transparent; color:var(--text2); cursor:pointer; transition:all 0.15s; }
+    .nav-btn.active { background:var(--text); color:var(--bg); border-color:var(--text); }
+    .nav-btn:hover:not(.active) { background:var(--bg2); color:var(--text); }
+    .main { padding:1.5rem 2rem; }
+    .view { display:none; }
+    .view.active { display:block; }
+
+    /* TABLE */
+    .filter-row { display:flex; gap:8px; margin-bottom:1rem; flex-wrap:wrap; align-items:center; font-family:system-ui,sans-serif; }
+    .filter-row input,.filter-row select { font-size:13px; padding:6px 10px; border-radius:var(--radius); border:0.5px solid var(--border2); background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; }
+    .count-label { font-size:12px; color:var(--text3); margin-left:4px; font-family:system-ui,sans-serif; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; font-family:system-ui,sans-serif; }
+    th { text-align:left; padding:8px 10px; font-weight:500; font-size:12px; color:var(--text2); border-bottom:0.5px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+    th:hover { color:var(--text); }
+    td { padding:9px 10px; border-bottom:0.5px solid var(--border); vertical-align:middle; }
+    tr:hover td { background:var(--bg2); }
+    tr.sel-row td { background:#E6F1FB; }
+    @media (prefers-color-scheme:dark) { tr.sel-row td { background:#0c3a5c; } }
+    tr { cursor:pointer; }
+    .gen-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:20px; font-weight:500; }
+    .status-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; }
+    .living { background:#1D9E75; }
+    .deceased { background:#888780; }
+    .tbl-thumb { width:32px; height:32px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:8px; background:var(--bg3); }
+    .tbl-thumb-placeholder { width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; vertical-align:middle; margin-right:8px; flex-shrink:0; }
+
+    /* TREE */
+    .tree-outer { overflow:auto; width:100%; border:0.5px solid var(--border); border-radius:var(--radius-lg); background:var(--bg2); padding:1rem; }
+
+    /* HOVER CARD */
+    .hcard {
+      position:fixed; z-index:500;
+      background:var(--bg);
+      border:0.5px solid var(--border2);
+      border-radius:var(--radius-lg);
+      padding:14px 14px 12px;
+      width:200px;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity 0.1s;
+      font-family:system-ui,sans-serif;
+      box-shadow:0 6px 28px rgba(0,0,0,0.13);
+    }
+    .hcard.visible { opacity:1; }
+    .hcard-img-wrap { width:64px; height:64px; border-radius:50%; margin:0 auto 10px; overflow:hidden; background:var(--bg3); display:flex; align-items:center; justify-content:center; }
+    .hcard-img-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+    .hcard-img-wrap svg { width:100%; height:100%; }
+    .hcard-name { font-size:13px; font-weight:600; text-align:center; line-height:1.3; color:var(--text); }
+    .hcard-dates { font-size:11px; color:var(--text2); text-align:center; margin-top:3px; }
+    .hcard-role { font-size:11px; color:var(--text3); text-align:center; margin-top:3px; font-style:italic; line-height:1.4; }
+    .hcard-divider { border:none; border-top:0.5px solid var(--border); margin:8px 0; }
+    .hcard-badge { display:block; text-align:center; font-size:11px; font-weight:500; padding:2px 10px; border-radius:20px; margin:0 auto 5px; width:fit-content; }
+    .hcard-loc { font-size:11px; color:var(--text2); text-align:center; }
+
+    /* TIMELINE */
+    .tl-outer { overflow-x:auto; }
+    .tl-chart { position:relative; padding-left:170px; min-width:900px; }
+    .tl-decade-row { position:relative; height:20px; border-bottom:0.5px solid var(--border); margin-bottom:10px; }
+    .tl-decade-label { position:absolute; font-size:10px; color:var(--text3); transform:translateX(-50%); font-family:system-ui,sans-serif; bottom:4px; }
+    .tl-tooltip { position:fixed; background:var(--text); color:var(--bg); font-size:12px; font-family:system-ui,sans-serif; padding:5px 10px; border-radius:var(--radius); pointer-events:none; white-space:nowrap; z-index:100; opacity:0; transition:opacity 0.1s; }
+    .tl-section-label { font-size:10px; font-weight:500; font-family:system-ui,sans-serif; text-transform:uppercase; letter-spacing:0.07em; display:inline-block; padding:2px 8px; border-radius:10px; margin:10px 0 4px; }
+    .tl-row { display:flex; align-items:center; margin-bottom:5px; position:relative; min-height:24px; }
+    .tl-name { position:absolute; left:-170px; width:165px; font-size:12px; color:var(--text2); text-align:right; padding-right:10px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:system-ui,sans-serif; }
+    .tl-name:hover { color:var(--text); }
+    .tl-name.tl-sel { color:var(--text); font-weight:500; }
+    .tl-bar-wrap { flex:1; position:relative; height:18px; }
+    .tl-bar { position:absolute; height:14px; top:2px; border-radius:3px; cursor:pointer; transition:opacity 0.15s; }
+    .tl-bar:hover { opacity:0.7; }
+    .tl-bar.tl-selected { outline:2px solid var(--text); outline-offset:1px; }
+
+    /* DETAIL PANEL */
+    .detail-panel { margin-top:1.5rem; border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem; background:var(--bg2); font-family:system-ui,sans-serif; }
+    .dp-header { display:flex; align-items:flex-start; gap:14px; margin-bottom:1rem; }
+    .dp-photo { width:72px; height:72px; border-radius:50%; object-fit:cover; flex-shrink:0; background:var(--bg3); }
+    .dp-photo-placeholder { width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:500; flex-shrink:0; }
+    .dp-name { font-size:17px; font-weight:500; }
+    .dp-sub { font-size:13px; color:var(--text2); margin-top:2px; }
+    .dp-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; }
+    .dp-field label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:2px; }
+    .dp-links { margin-top:1rem; padding-top:1rem; border-top:0.5px solid var(--border); }
+    .dp-links-title { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text3); margin-bottom:6px; }
+    .link-chip { display:inline-block; font-size:12px; padding:4px 10px; border-radius:20px; border:0.5px solid var(--border2); margin:3px 4px 3px 0; cursor:pointer; background:var(--bg); }
+    .link-chip:hover { background:var(--bg3); }
+    .link-chip span { font-size:10px; color:var(--text3); margin-right:3px; }
+    @media (max-width:600px) { .main{padding:1rem;} header{padding:1rem 1rem 0.75rem;} .nav-bar{padding:0.75rem 1rem;} .dp-grid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+<div id="tl-tooltip" class="tl-tooltip"></div>
+<div id="hcard" class="hcard">
+  <div class="hcard-img-wrap" id="hcard-img-wrap"></div>
+  <div class="hcard-name" id="hcard-name"></div>
+  <div class="hcard-dates" id="hcard-dates"></div>
+  <div class="hcard-role" id="hcard-role"></div>
+  <hr class="hcard-divider">
+  <span class="hcard-badge" id="hcard-badge"></span>
+  <div class="hcard-loc" id="hcard-loc"></div>
+</div>
+
+<header>
+  <h1>Kennedy Family Explorer</h1>
+  <p>Four generations &middot; 28 people &middot; Table, Tree, and Timeline views</p>
+</header>
+<div class="nav-bar">
+  <button class="nav-btn active" onclick="switchView('table',this)">Table</button>
+  <button class="nav-btn" onclick="switchView('tree',this)">Family tree</button>
+  <button class="nav-btn" onclick="switchView('timeline',this)">Timeline</button>
+</div>
+<div class="main">
+  <div id="view-table" class="view active"></div>
+  <div id="view-tree" class="view"></div>
+  <div id="view-timeline" class="view"></div>
+  <div id="detail-panel"></div>
+</div>
+
+<script>
+/* ── DATA ── */
+const PEOPLE = [
+  {id:'p1',  name:'Patrick Joseph Kennedy',    wiki:'Patrick_Joseph_Kennedy',          gen:4, born:1858, died:1929, role:'Saloon owner, politician',             location:'East Boston, MA',  email:'—', status:'deceased', spouse:'p2'},
+  {id:'p2',  name:'Mary Augusta Hickey',        wiki:'Mary_Augusta_Hickey',             gen:4, born:1857, died:1923, role:'Matriarch',                            location:'East Boston, MA',  email:'—', status:'deceased', spouse:'p1'},
+  {id:'p3',  name:'John Francis Fitzgerald',    wiki:'John_Francis_Fitzgerald',         gen:4, born:1863, died:1950, role:'Mayor of Boston',                      location:'Boston, MA',        email:'—', status:'deceased', spouse:'p4'},
+  {id:'p4',  name:'Mary Josephine Hannon',      wiki:'Mary_Josephine_Hannon',           gen:4, born:1865, died:1964, role:'Matriarch',                            location:'Boston, MA',        email:'—', status:'deceased', spouse:'p3'},
+  {id:'p5',  name:'William Cavendish (Duke)',   wiki:'William_Cavendish,_7th_Duke_of_Devonshire', gen:4, born:1865, died:1950, role:'British aristocrat',        location:'Devonshire, UK',    email:'—', status:'deceased', spouse:'p6'},
+  {id:'p6',  name:'Evelyn Fitzmaurice',         wiki:'Evelyn_Fitzmaurice',              gen:4, born:1870, died:1960, role:'Duchess of Devonshire',                location:'Devonshire, UK',    email:'—', status:'deceased', spouse:'p5'},
+  {id:'p7',  name:'Joseph P. Kennedy Sr.',      wiki:'Joseph_P._Kennedy_Sr.',           gen:3, born:1888, died:1969, role:'Ambassador to UK, businessman',        location:'Hyannis Port, MA',  email:'—', status:'deceased', parents:['p1','p2'], spouse:'p8'},
+  {id:'p8',  name:'Rose Fitzgerald Kennedy',    wiki:'Rose_Kennedy',                    gen:3, born:1890, died:1995, role:'Philanthropist, author',               location:'Hyannis Port, MA',  email:'—', status:'deceased', parents:['p3','p4'], spouse:'p7'},
+  {id:'p9',  name:'William Cavendish (Marquess)',wiki:'William_Cavendish,_Marquess_of_Hartington', gen:3, born:1917, died:1944, role:'Marquess of Hartington',    location:'Devonshire, UK',    email:'—', status:'deceased', parents:['p5','p6']},
+  {id:'p10', name:'Hugh Auchincloss II',        wiki:'Hugh_D._Auchincloss',             gen:3, born:1897, died:1976, role:'Banker, stepfather of Jackie',         location:'Newport, RI',       email:'—', status:'deceased'},
+  {id:'p11', name:'Janet Norton Lee',           wiki:'Janet_Lee_Bouvier',               gen:3, born:1907, died:1989, role:'Mother of Jacqueline',                 location:'Newport, RI',       email:'—', status:'deceased', spouse:'p10'},
+  {id:'p12', name:'John F. Kennedy',            wiki:'John_F._Kennedy',                 gen:2, born:1917, died:1963, role:'35th President of the United States',  location:'Washington, D.C.',  email:'—', status:'deceased', parents:['p7','p8'], spouse:'p13'},
+  {id:'p13', name:'Jacqueline Kennedy Onassis', wiki:'Jacqueline_Kennedy_Onassis',      gen:2, born:1929, died:1994, role:'First Lady, editor',                   location:'New York, NY',      email:'—', status:'deceased', parents:['p10','p11'], spouse:'p12'},
+  {id:'p14', name:'Robert F. Kennedy',          wiki:'Robert_F._Kennedy',               gen:2, born:1925, died:1968, role:'U.S. Attorney General, Senator',       location:'McLean, VA',        email:'—', status:'deceased', parents:['p7','p8'], spouse:'p15'},
+  {id:'p15', name:'Ethel Kennedy',              wiki:'Ethel_Kennedy',                   gen:2, born:1928, died:null, role:'Activist, widow of RFK',               location:'McLean, VA',        email:'—', status:'living',   spouse:'p14'},
+  {id:'p16', name:'Ted Kennedy',                wiki:'Ted_Kennedy',                     gen:2, born:1932, died:2009, role:'U.S. Senator (47 years)',              location:'Boston, MA',        email:'—', status:'deceased', parents:['p7','p8'], spouse:'p17'},
+  {id:'p17', name:'Joan Bennett Kennedy',       wiki:'Joan_Kennedy',                    gen:2, born:1936, died:2024, role:'Concert pianist, advocate',            location:'Boston, MA',        email:'—', status:'deceased', spouse:'p16'},
+  {id:'p18', name:'Patricia Kennedy Lawford',   wiki:'Patricia_Kennedy_Lawford',        gen:2, born:1924, died:2006, role:'Actress, socialite',                   location:'New York, NY',      email:'—', status:'deceased', parents:['p7','p8']},
+  {id:'p19', name:'Eunice Kennedy Shriver',     wiki:'Eunice_Kennedy_Shriver',          gen:2, born:1921, died:2009, role:'Founder, Special Olympics',            location:'Rockville, MD',     email:'—', status:'deceased', parents:['p7','p8']},
+  {id:'p20', name:'Caroline Kennedy',           wiki:'Caroline_Kennedy',                gen:1, born:1957, died:null, role:'Ambassador to Australia, author',      location:'Washington, D.C.',  email:'—', status:'living',   parents:['p12','p13']},
+  {id:'p21', name:'John F. Kennedy Jr.',        wiki:'John_F._Kennedy_Jr.',             gen:1, born:1960, died:1999, role:'Lawyer, magazine founder',             location:'New York, NY',      email:'—', status:'deceased', parents:['p12','p13']},
+  {id:'p22', name:'Kathleen Kennedy Townsend',  wiki:'Kathleen_Kennedy_Townsend',       gen:1, born:1951, died:null, role:'Lt. Governor of Maryland',             location:'Rockville, MD',     email:'—', status:'living',   parents:['p14','p15']},
+  {id:'p23', name:'Robert F. Kennedy Jr.',      wiki:'Robert_F._Kennedy_Jr.',           gen:1, born:1954, died:null, role:'Lawyer, politician',                   location:'Los Angeles, CA',   email:'—', status:'living',   parents:['p14','p15']},
+  {id:'p24', name:'Douglas Kennedy',            wiki:'Douglas_Kennedy_(journalist)',    gen:1, born:1966, died:null, role:'Journalist, author',                   location:'New York, NY',      email:'—', status:'living',   parents:['p14','p15']},
+  {id:'p25', name:'Edward Kennedy Jr.',         wiki:'Edward_Kennedy_Jr.',              gen:1, born:1961, died:null, role:'Disability rights advocate, attorney', location:'Branford, CT',      email:'—', status:'living',   parents:['p16','p17']},
+  {id:'p26', name:'Patrick J. Kennedy',         wiki:'Patrick_J._Kennedy',              gen:1, born:1967, died:null, role:'Former U.S. Representative',           location:'Providence, RI',    email:'—', status:'living',   parents:['p16','p17']},
+  {id:'p27', name:'Rory Kennedy',               wiki:'Rory_Kennedy',                    gen:1, born:1968, died:null, role:'Documentary filmmaker',                location:'New York, NY',      email:'—', status:'living',   parents:['p14','p15']},
+  {id:'p28', name:'Maria Shriver',              wiki:'Maria_Shriver',                   gen:1, born:1955, died:null, role:'Journalist, author',                   location:'Los Angeles, CA',   email:'—', status:'living',   parents:['p19']},
+];
+
+/* ── COLOURS ── */
+const GEN_BG   = {1:'#EEEDFE', 2:'#E1F5EE', 3:'#FAECE7', 4:'#FBEAF0'};
+const GEN_TEXT = {1:'#3C3489', 2:'#085041', 3:'#712B13', 4:'#72243E'};
+const GEN_FILL = {1:'#AFA9EC', 2:'#5DCAA5', 3:'#F0997B', 4:'#ED93B1'};
+const GEN_BAR  = {1:'#7F77DD', 2:'#1D9E75', 3:'#D85A30', 4:'#D4537E'};
+const GEN_LABEL= {4:'Great-grandparents', 3:'Joseph & Rose generation', 2:'JFK generation', 1:'Current generation'};
+
+/* ── PHOTO CACHE ── */
+// Keyed by person id → image URL string (or null if not found)
+const photoCache = {};
+
+async function fetchPhoto(p) {
+  if (p.id in photoCache) return photoCache[p.id];
+  photoCache[p.id] = null; // mark as pending so we don't double-fetch
+  try {
+    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(p.wiki)}`;
+    const res = await fetch(url);
+    if (!res.ok) { photoCache[p.id] = null; return null; }
+    const data = await res.json();
+    const img = data.thumbnail?.source || data.originalimage?.source || null;
+    photoCache[p.id] = img;
+    return img;
+  } catch(e) {
+    photoCache[p.id] = null;
+    return null;
+  }
+}
+
+// Pre-fetch all photos in background
+async function prefetchAllPhotos() {
+  await Promise.all(PEOPLE.map(p => fetchPhoto(p)));
+  // Re-render everything once photos are loaded
+  renderAll();
+}
+
+/* ── HELPERS ── */
+let selectedId = null;
+let sortCol = 'name', sortAsc = true;
+let filterGen = '0', filterStatus = 'all', searchQ = '';
+
+const byId = id => PEOPLE.find(p => p.id === id);
+const initials = n => n.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('');
+const fmtLife = (b,d) => b + (d ? ' \u2013 '+d : ' \u2013 present');
+
+function placeholderSVG(p, size=64) {
+  const r = size/2;
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${r}" cy="${r}" r="${r}" fill="${GEN_FILL[p.gen]}" opacity="0.4"/>
+    <circle cx="${r}" cy="${r*0.72}" r="${r*0.30}" fill="${GEN_TEXT[p.gen]}" opacity="0.85"/>
+    <ellipse cx="${r}" cy="${r*1.44}" rx="${r*0.52}" ry="${r*0.34}" fill="${GEN_TEXT[p.gen]}" opacity="0.7"/>
+    <text x="${r}" y="${r*0.85}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${r*0.38}" font-weight="700" fill="${GEN_BG[p.gen]}">${initials(p.name)}</text>
+  </svg>`;
+}
+
+function imgOrPlaceholder(p, size=64, round=true) {
+  const photo = photoCache[p.id];
+  const style = round ? `width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;` : `width:${size}px;height:${size}px;object-fit:cover;`;
+  if (photo) {
+    return `<img src="${photo}" alt="${p.name}" style="${style}" onerror="this.outerHTML=\`${placeholderSVG(p, size).replace(/`/g,"'")}\`"/>`;
+  }
+  return placeholderSVG(p, size);
+}
+
+function selectPerson(id) { selectedId = id; renderAll(); }
+function switchView(v, btn) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  btn.classList.add('active');
+}
+function renderAll() { renderTable(); renderTree(); renderTimeline(); renderDetail(); }
+
+/* ── TABLE ── */
+function renderTable() {
+  let people = [...PEOPLE];
+  if (filterGen !== '0') people = people.filter(p => p.gen == filterGen);
+  if (filterStatus !== 'all') people = people.filter(p => p.status === filterStatus);
+  if (searchQ) people = people.filter(p => p.name.toLowerCase().includes(searchQ.toLowerCase()));
+  people.sort((a,b) => {
+    let va = a[sortCol] ?? 9999, vb = b[sortCol] ?? 9999;
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+  const arr = c => c === sortCol ? (sortAsc ? ' \u2191' : ' \u2193') : '';
+  const mkth = (l,c) => `<th onclick="setSort('${c}')">${l}${arr(c)}</th>`;
+  let html = `<div class="filter-row">
+    <input type="text" placeholder="Search name\u2026" oninput="searchQ=this.value;renderTable()" value="${searchQ}" style="width:180px"/>
+    <select onchange="filterGen=this.value;renderTable()">
+      <option value="0">All generations</option>
+      <option value="1" ${filterGen=='1'?'selected':''}>Gen 1 \u2013 current</option>
+      <option value="2" ${filterGen=='2'?'selected':''}>Gen 2 \u2013 JFK era</option>
+      <option value="3" ${filterGen=='3'?'selected':''}>Gen 3 \u2013 Joseph & Rose</option>
+      <option value="4" ${filterGen=='4'?'selected':''}>Gen 4 \u2013 great-grandparents</option>
+    </select>
+    <select onchange="filterStatus=this.value;renderTable()">
+      <option value="all">All</option>
+      <option value="living" ${filterStatus=='living'?'selected':''}>Living</option>
+      <option value="deceased" ${filterStatus=='deceased'?'selected':''}>Deceased</option>
+    </select>
+    <span class="count-label">${people.length} people</span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th style="width:40px"></th>${mkth('Name','name')}${mkth('Gen','gen')}${mkth('Born','born')}${mkth('Died','died')}${mkth('Role','role')}${mkth('Location','location')}</tr></thead><tbody>`;
+  people.forEach(p => {
+    const sel = p.id === selectedId ? 'sel-row' : '';
+    const photo = photoCache[p.id];
+    const thumb = photo
+      ? `<img src="${photo}" class="tbl-thumb" alt="${p.name}" onerror="this.style.display='none'">`
+      : `<span class="tbl-thumb-placeholder" style="background:${GEN_BG[p.gen]};color:${GEN_TEXT[p.gen]}">${initials(p.name)}</span>`;
+    html += `<tr class="${sel}" onclick="selectPerson('${p.id}')">
+      <td style="width:40px;padding-right:0">${thumb}</td>
+      <td><span class="status-dot ${p.status}"></span><strong>${p.name}</strong></td>
+      <td><span class="gen-badge" style="background:${GEN_BG[p.gen]};color:${GEN_TEXT[p.gen]}">Gen ${p.gen}</span></td>
+      <td>${p.born}</td><td>${p.died??'\u2014'}</td>
+      <td style="color:var(--text2)">${p.role}</td>
+      <td style="color:var(--text2)">${p.location}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('view-table').innerHTML = html;
+}
+function setSort(col) {
+  if (sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+  renderTable();
+}
+
+/* ── TREE ── */
+function renderTree() {
+  const NW=84, NH=100, HGAP=32, VGAP=130;
+  const GENS=[4,3,2,1];
+  const byGen={};
+  GENS.forEach(g => { byGen[g]=PEOPLE.filter(p=>p.gen===g); });
+  const maxPerRow = Math.max(...GENS.map(g=>byGen[g].length));
+  const canvasW = Math.max(maxPerRow*(NW+HGAP)+80, 700);
+  const canvasH = GENS.length*(NH+VGAP)+60;
+
+  const pos={};
+  GENS.forEach((g,gi) => {
+    const row=byGen[g];
+    const rowW=row.length*NW+(row.length-1)*HGAP;
+    const startX=(canvasW-rowW)/2;
+    const cy=gi*(NH+VGAP)+NH/2+50;
+    row.forEach((p,i) => {
+      pos[p.id]={ x:startX+i*(NW+HGAP), y:cy-NH/2, cx:startX+i*(NW+HGAP)+NW/2, cy };
+    });
+  });
+
+  let edges='';
+  PEOPLE.forEach(p => {
+    if (!p.parents||!pos[p.id]) return;
+    p.parents.forEach(pid => {
+      if (!pos[pid]) return;
+      const fp=pos[pid], tp=pos[p.id];
+      const my=(fp.y+NH+tp.y)/2;
+      edges+=`<path d="M${fp.cx},${fp.y+NH} C${fp.cx},${my} ${tp.cx},${my} ${tp.cx},${tp.y}" fill="none" stroke="${GEN_FILL[byId(pid).gen]}" stroke-width="1.8" opacity="0.55"/>`;
+    });
+  });
+  PEOPLE.forEach(p => {
+    if (!p.spouse||p.id>=p.spouse||!pos[p.id]||!pos[p.spouse]) return;
+    const fp=pos[p.id], tp=pos[p.spouse];
+    edges+=`<line x1="${fp.x+NW}" y1="${fp.cy}" x2="${tp.x}" y2="${tp.cy}" stroke="#B4B2A9" stroke-width="1.2" stroke-dasharray="5,3" opacity="0.65"/>`;
+    edges+=`<text x="${(fp.x+NW+tp.x)/2}" y="${fp.cy-5}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#888780" opacity="0.8">\u2665</text>`;
+  });
+
+  let genLabels='';
+  GENS.forEach((g,gi) => {
+    const y=gi*(NH+VGAP)+46;
+    genLabels+=`<text x="6" y="${y}" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="${GEN_TEXT[g]}" opacity="0.9">${GEN_LABEL[g]}</text>`;
+  });
+
+  // Nodes — use foreignObject to embed <img> inside SVG
+  let nodes='';
+  PEOPLE.forEach(p => {
+    if (!pos[p.id]) return;
+    const {x,y,cx,cy}=pos[p.id];
+    const isSel=p.id===selectedId;
+    const strokeW=isSel?2.5:1;
+    const strokeC=isSel?GEN_TEXT[p.gen]:GEN_FILL[p.gen];
+    const dotC=p.status==='living'?'#1D9E75':'#B4B2A9';
+    const firstName=p.name.split(' ')[0];
+    const lastName=p.name.split(' ').slice(-1)[0];
+    const photo=photoCache[p.id];
+    const clipId=`clip-${p.id}`;
+    const imgR=24;
+    const imgCX=cx, imgCY=y+28;
+
+    // Card
+    nodes+=`<rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="10" fill="${GEN_BG[p.gen]}" stroke="${strokeC}" stroke-width="${strokeW}"/>`;
+    // Circular clip for portrait
+    nodes+=`<defs><clipPath id="${clipId}"><circle cx="${imgCX}" cy="${imgCY}" r="${imgR}"/></clipPath></defs>`;
+    // Portrait background circle
+    nodes+=`<circle cx="${imgCX}" cy="${imgCY}" r="${imgR}" fill="${GEN_FILL[p.gen]}" opacity="0.35"/>`;
+
+    if (photo) {
+      nodes+=`<image href="${photo}" x="${imgCX-imgR}" y="${imgCY-imgR}" width="${imgR*2}" height="${imgR*2}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`;
+    } else {
+      // SVG placeholder portrait
+      nodes+=`<circle cx="${imgCX}" cy="${imgCY-5}" r="9" fill="${GEN_TEXT[p.gen]}" opacity="0.8"/>`;
+      nodes+=`<ellipse cx="${imgCX}" cy="${imgCY+10}" rx="13" ry="8" fill="${GEN_TEXT[p.gen]}" opacity="0.65"/>`;
+      nodes+=`<text x="${imgCX}" y="${imgCY-1}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" font-weight="700" fill="${GEN_BG[p.gen]}">${initials(p.name)}</text>`;
+    }
+
+    // Portrait border ring
+    nodes+=`<circle cx="${imgCX}" cy="${imgCY}" r="${imgR}" fill="none" stroke="${GEN_FILL[p.gen]}" stroke-width="1.5"/>`;
+    // Name
+    nodes+=`<text x="${cx}" y="${y+NH-22}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" font-weight="600" fill="${GEN_TEXT[p.gen]}">${firstName}</text>`;
+    nodes+=`<text x="${cx}" y="${y+NH-11}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" fill="${GEN_TEXT[p.gen]}" opacity="0.75">${lastName}</text>`;
+    // Status dot
+    nodes+=`<circle cx="${x+NW-8}" cy="${y+8}" r="3.5" fill="${dotC}"/>`;
+    // Hit area
+    nodes+=`<rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="10" fill="transparent" style="cursor:pointer"
+      onmouseenter="showHCard(event,'${p.id}')" onmousemove="moveHCard(event)" onmouseleave="hideHCard()" onclick="selectPerson('${p.id}')"/>`;
+  });
+
+  const svg=`<svg width="${canvasW}" height="${canvasH}" viewBox="0 0 ${canvasW} ${canvasH}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    ${genLabels}${edges}${nodes}
+  </svg>`;
+  document.getElementById('view-tree').innerHTML=`
+    <p style="font-size:12px;color:var(--text2);margin-bottom:1rem;font-family:system-ui,sans-serif">Hover a node to preview &nbsp;&middot;&nbsp; Click to select &nbsp;&middot;&nbsp; Curved lines = parent/child &nbsp;&middot;&nbsp; Dashed lines = married</p>
+    <div class="tree-outer">${svg}</div>`;
+}
+
+/* ── HOVER CARD ── */
+function showHCard(event, id) {
+  const p = byId(id);
+  const card = document.getElementById('hcard');
+  document.getElementById('hcard-name').textContent = p.name;
+  document.getElementById('hcard-dates').textContent = fmtLife(p.born, p.died);
+  document.getElementById('hcard-role').textContent = p.role;
+  document.getElementById('hcard-loc').textContent = p.location;
+  const badge = document.getElementById('hcard-badge');
+  badge.textContent = GEN_LABEL[p.gen];
+  badge.style.background = GEN_BG[p.gen];
+  badge.style.color = GEN_TEXT[p.gen];
+  const wrap = document.getElementById('hcard-img-wrap');
+  const photo = photoCache[p.id];
+  if (photo) {
+    wrap.innerHTML = `<img src="${photo}" alt="${p.name}" style="width:64px;height:64px;object-fit:cover;" onerror="this.parentElement.innerHTML='${placeholderSVG(p,64).replace(/'/g,"\\'")}'">`;
+  } else {
+    wrap.innerHTML = placeholderSVG(p, 64);
+  }
+  card.classList.add('visible');
+  moveHCard(event);
+}
+function moveHCard(event) {
+  const card = document.getElementById('hcard');
+  let x = event.clientX+18, y = event.clientY-14;
+  if (x+210 > window.innerWidth) x = event.clientX-218;
+  if (y+card.offsetHeight > window.innerHeight) y = window.innerHeight-card.offsetHeight-8;
+  card.style.left = x+'px'; card.style.top = y+'px';
+}
+function hideHCard() { document.getElementById('hcard').classList.remove('visible'); }
+
+/* ── TIMELINE ── */
+function renderTimeline() {
+  const MIN_Y=1850, MAX_Y=2030, RANGE=MAX_Y-MIN_Y;
+  const decades=[]; for (let y=1860;y<=2020;y+=10) decades.push(y);
+  let html=`<div class="tl-outer"><div class="tl-chart"><div class="tl-decade-row">`;
+  decades.forEach(y => { const pct=((y-MIN_Y)/RANGE*100).toFixed(2); html+=`<span class="tl-decade-label" style="left:${pct}%">${y}</span>`; });
+  html+=`</div>`;
+  [4,3,2,1].forEach(g => {
+    const people=PEOPLE.filter(p=>p.gen===g);
+    html+=`<div class="tl-section-label" style="background:${GEN_BG[g]};color:${GEN_TEXT[g]}">${GEN_LABEL[g]}</div>`;
+    people.forEach(p => {
+      const clampedBorn = Math.max(p.born, MIN_Y);
+      const s=((clampedBorn-MIN_Y)/RANGE*100).toFixed(2);
+      const e=(((p.died||2026)-MIN_Y)/RANGE*100).toFixed(2);
+      const w=(e-s).toFixed(2);
+      const sel=p.id===selectedId;
+      html+=`<div class="tl-row">
+        <div class="tl-name ${sel?'tl-sel':''}" onclick="selectPerson('${p.id}')" title="${p.name}">${p.name}</div>
+        <div class="tl-bar-wrap">
+          <div class="tl-bar ${sel?'tl-selected':''}" onclick="selectPerson('${p.id}')"
+            data-tip="${p.name}: ${p.born}\u2013${p.died||'present'}"
+            onmouseenter="showTip(event,this)" onmousemove="moveTip(event)" onmouseleave="hideTip()"
+            style="left:${s}%;width:${w}%;background:${GEN_BAR[p.gen]};opacity:${p.status==='living'?'1':'0.6'}"></div>
+        </div>
+      </div>`;
+    });
+  });
+  html+=`</div></div>`;
+  document.getElementById('view-timeline').innerHTML=html;
+}
+
+/* ── DETAIL PANEL ── */
+function renderDetail() {
+  if (!selectedId) { document.getElementById('detail-panel').innerHTML=''; return; }
+  const p=byId(selectedId);
+  const rels=[];
+  if (p.parents) p.parents.forEach(pid=>{ const par=byId(pid); if(par) rels.push({label:'Parent',person:par}); });
+  if (p.spouse) { const sp=byId(p.spouse); if(sp) rels.push({label:'Spouse',person:sp}); }
+  PEOPLE.filter(x=>x.parents&&x.parents.includes(p.id)).forEach(c=>rels.push({label:'Child',person:c}));
+  const siblings=p.parents?PEOPLE.filter(x=>x.id!==p.id&&x.parents&&p.parents.some(pid=>x.parents&&x.parents.includes(pid))):[];
+  siblings.forEach(s=>rels.push({label:'Sibling',person:s}));
+  const photo=photoCache[p.id];
+  const portrait=photo
+    ? `<img src="${photo}" class="dp-photo" alt="${p.name}" onerror="this.outerHTML='<div class=\\'dp-photo-placeholder\\' style=\\'background:${GEN_BG[p.gen]};color:${GEN_TEXT[p.gen]}\\'>${initials(p.name)}</div>'">`
+    : `<div class="dp-photo-placeholder" style="background:${GEN_BG[p.gen]};color:${GEN_TEXT[p.gen]}">${initials(p.name)}</div>`;
+  document.getElementById('detail-panel').innerHTML=`
+  <div class="detail-panel">
+    <div class="dp-header">
+      ${portrait}
+      <div>
+        <div class="dp-name">${p.name}</div>
+        <div class="dp-sub">${p.role}</div>
+        <div style="margin-top:6px">
+          <span class="gen-badge" style="background:${GEN_BG[p.gen]};color:${GEN_TEXT[p.gen]}">Generation ${p.gen}</span>
+          <span style="font-size:12px;color:var(--text2);margin-left:8px"><span class="status-dot ${p.status}"></span>${p.status}</span>
+        </div>
+      </div>
+    </div>
+    <div class="dp-grid">
+      <div class="dp-field"><label>Born</label><span>${p.born}</span></div>
+      <div class="dp-field"><label>Died</label><span>${p.died??'Still living'}</span></div>
+      <div class="dp-field"><label>Location</label><span>${p.location}</span></div>
+      <div class="dp-field"><label>Wikipedia</label><span><a href="https://en.wikipedia.org/wiki/${p.wiki}" target="_blank" style="color:${GEN_TEXT[p.gen]}">View article \u2197</a></span></div>
+    </div>
+    ${rels.length?`<div class="dp-links">
+      <div class="dp-links-title">Related people</div>
+      ${rels.map(r=>`<span class="link-chip" onclick="selectPerson('${r.person.id}')"><span>${r.label}</span>${r.person.name.split(' ').slice(0,2).join(' ')}</span>`).join('')}
+    </div>`:''}
+  </div>`;
+}
+
+/* ── TOOLTIP (timeline) ── */
+function showTip(e,el){const t=document.getElementById('tl-tooltip');t.textContent=el.dataset.tip;t.style.opacity='1';moveTip(e);}
+function moveTip(e){const t=document.getElementById('tl-tooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-28)+'px';}
+function hideTip(){document.getElementById('tl-tooltip').style.opacity='0';}
+
+/* ── INIT ── */
+// Render immediately with placeholders, then re-render once photos arrive
+renderAll();
+prefetchAllPhotos();
+</script>
+</body>
+</html>
